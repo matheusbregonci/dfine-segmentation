@@ -1,0 +1,175 @@
+project_name: gran            # nome do projeto (usado no wandb)
+exp_name: exp                 # nome do experimento
+
+exp: ${exp_name}_${now_dir}
+
+model_name: s                 # tamanho do modelo (n, s, m, l, x)
+task: segment                 # "detect" ou "segment"
+
+train:
+  ### Caminhos ###
+  # train.root é sobrescrito automaticamente pelos wrappers (train.py, etc.)
+  # para apontar para esta pasta dfine-segmentation.
+  root: .
+  pretrained_dataset: coco            # coco, obj2coco
+  pretrained_model_path: pretrained/dfine_${model_name}_${train.pretrained_dataset}.pt
+
+  imagenet_backbone: False            # research: inicia HGNetv2 com pesos ImageNet stage1
+  coco_dataset: False                 # True quando as anotações estão em COCO JSON
+
+  data_path: ${train.root}/data/dataset        # dataset (images/ + labels/) antes do split
+  path_to_test_data: ${train.root}/data/test    # conjunto de teste, usado no script de inferência
+  path_to_save: ${train.root}/output/models/${exp}
+
+  debug_img_path: ${train.root}/output/debug_images
+  eval_preds_path: ${train.root}/output/eval_preds
+  bench_img_path: ${train.root}/output/bench_imgs
+  infer_path: ${train.root}/output/infer
+
+  ### Configs ###
+  use_wandb: False
+  device: cuda
+  label_to_name:                # classes do dataset gran (Roboflow)
+    0: gran
+
+  use_one_class: True           # dataset de classe única
+
+  ### Treino distribuído (DDP) ###
+  ddp:
+    enabled: False              # True para multi-GPU
+    n_gpus: 2
+
+  decision_metrics:             # f1, iou, mAP_50, mAP_50_95, mAP_50_mask, mAP_50_95_mask
+  - f1
+  - mAP_50_mask
+  - iou
+
+  img_size: [384, 384]          # (h, w)
+  in_channels: 3                # 3 = RGB (padrão). >3 espera stacks .npy (RGB+extras)
+  keep_ratio: False             # se True, imagem recebe padding para manter aspect ratio
+  to_visualize_eval: True       # salva imagens com gt e preds
+  debug_img_processing: True    # salva imagens depois do preprocessamento
+
+  amp_enabled: True             # automatic mixed precision
+  clip_max_norm: 0.1            # gradient clipping
+
+  batch_size: -1                # físico, deve caber no device. -1 = auto
+  b_accum_steps: 1              # grad accumulation (n * bs)
+  epochs: 150
+  max_walltime_min: null
+  early_stopping: 30            # 0 = sem early stopping
+  ignore_background_epochs: 0
+  num_workers: 8                # baixe se faltar RAM na segmentação
+  mask_batch_size: 150          # nº de imagens por vez ao calcular métricas de máscara
+
+  ### Validação ###
+  conf_thresh: 0.5
+  iou_thresh: 0.5
+
+  ### EMA ###
+  use_ema: True
+  ema_momentum: 0.9998
+
+  ### Otimizador e Scheduler ###
+  use_scheduler: True
+  use_muon: True                # roteia matrizes attn+MLP do enc/dec para Muon, resto fica AdamW
+  aux_optimizer: adamw          # adamw|adan
+  adan_lr_mult: 5.0
+  adan_betas: [0.98, 0.92, 0.99]
+  base_lr: ${train.lrs.${model_name}.base_lr}
+  backbone_lr: ${train.lrs.${model_name}.backbone_lr}
+  cycler_pct_start: 0.1
+  weight_decay: 0.000125
+  betas: [0.9, 0.999]
+  label_smoothing: 0.0
+
+  ### Augmentações ###
+  mosaic_augs:                  # mosaic não é recomendado para segmentação
+    mosaic_prob: 0.0            # desativado para segmentação
+    no_mosaic_epochs: 5
+    mosaic_scale: [0.5, 1.5]
+    degrees: 0.0
+    translate: 0.2
+    shear: 2.0
+
+  augs:
+    rotation_degree: 10
+    rotation_p: 0.05
+    multiscale_prob: 0.0
+    rotate_90: 0.05
+    left_right_flip: 0.5
+    up_down_flip: 0.1
+    to_gray: 0.01
+    blur: 0.01
+    gamma: 0.02
+    brightness: 0.02
+    noise: 0.01
+    coarse_dropout: 0.0
+
+  ### Reprodutibilidade ###
+  seed: 42
+  cudnn_fixed: False
+
+  ### Learning rates recomendados por tamanho de modelo ###
+  lrs:
+    n:
+      backbone_lr: 0.0004
+      base_lr: 0.0008
+    s:
+      backbone_lr: 0.00006
+      base_lr: 0.00025
+    m:
+      backbone_lr: 0.00002
+      base_lr: 0.00015
+    l:
+      backbone_lr: 0.00001
+      base_lr: 0.00016
+    x:
+      backbone_lr: 0.000002
+      base_lr: 0.0002
+
+
+split:
+  ignore_negatives: False       # só usa imagens com labels
+  shuffle: True
+  train_split: 0.85
+  val_split: 0.15               # test_split = 1 - train_split - val_split
+
+
+export:                         # TensorRT precisa ser feito no device de inferência
+  from_pretrained: False        # True = exporta pesos pretreinados sem treinar
+  half: True                    # tensorrt, openvino
+  max_batch_size: 1
+  dynamic_input: False
+  formats: null                 # null = todos os backends; lista (ex.: [onnx]) restringe
+  ov_int8_max_drop: 0.02
+  trt_int8_workspace_gb: 4
+  trt_int8_validate: True
+
+
+bench:
+  formats:
+    - torch
+    - onnx
+
+
+infer:
+  to_crop: True                 # salva crops dos objetos detectados
+  to_track: True                # vídeos: IDs persistentes via ByteTrack + mp4 anotado
+  paddings:                     # int = pixels, float = percentual do tamanho da imagem
+    w: 0.05
+    h: 0.05
+
+
+### service ###
+defaults:
+  - _self_
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+
+hydra:
+  output_subdir: null
+  run:
+    dir: .
+
+now_dir: &nowdir ${now:%Y-%m-%d}

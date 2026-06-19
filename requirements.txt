@@ -1,0 +1,9 @@
+# O D-FINE-seg gerencia suas próprias dependências via `uv` (pyproject.toml + uv.lock)
+# dentro do clone do repositório — veja scripts/setup_dfine.ps1.
+#
+# As dependências abaixo são apenas as usadas pelos scripts/utilitários DESTE projeto
+# (wrappers e preparação de dados). A pilha pesada (torch, etc.) vem do `uv sync`.
+PyYAML>=6.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+tqdm>=4.65.0

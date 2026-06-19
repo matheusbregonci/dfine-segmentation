@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+.venv/
+
+# Clone do framework D-FINE-seg (instalado via scripts/setup_dfine.ps1)
+D-FINE-seg/
+
+# Pesos e saídas de treino (grandes demais pro git)
+output/
+pretrained/
+*.pt
+*.onnx
+*.engine
+*.tflite
+
+# Dados (geralmente não vão pro repo)
+data/dataset/
+data/test/
+
+# Imagens de teste em dados reais (não vão pro repo)
+teste_dados_reais/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
