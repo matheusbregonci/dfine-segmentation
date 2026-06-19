@@ -8,6 +8,12 @@ O D-FINE-seg lê **o mesmo formato de labels** do YOLO de segmentação
 (`classe x1 y1 x2 y2 ... xN yN`, normalizados), então o dataset **gran** é reaproveitado
 diretamente.
 
+## Exemplo
+
+| Fonte (pré-segmentação) | Segmentação (pós) |
+|:---:|:---:|
+| ![Imagem fonte](exemplo_fonte.jpg) | ![Imagem segmentada](exemplo.jpg) |
+
 ## Diferença em relação ao projeto YOLO
 
 | | `yolov8-segmentation` | `dfine-segmentation` (este) |
